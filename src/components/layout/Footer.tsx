@@ -1,20 +1,23 @@
+import { Link } from 'react-router';
 import { Marca } from './Marca';
 
-const informacion = [
-  'Sobre nosotros',
-  'Preguntas frecuentes',
-  'Términos y condiciones',
-  'Políticas de privacidad',
-  'Noticias',
+interface ItemFooter {
+  label: string;
+  /** Si tiene ruta, se muestra como enlace; si no, como texto. */
+  to?: string;
+}
+
+const informacion: ItemFooter[] = [
+  { label: 'Sobre nosotros' },
+  { label: 'Preguntas frecuentes' },
+  { label: 'Términos y condiciones' },
+  { label: 'Políticas de privacidad' },
 ];
 
-const servicios = [
-  'Buscar vuelos',
-  'Buscar hoteles',
-  'Mis reservas',
-  'Equipaje',
-  'Check-in',
-  'Estado de vuelos',
+const servicios: ItemFooter[] = [
+  { label: 'Buscar vuelos', to: '/' },
+  { label: 'Buscar hoteles', to: '/hoteles' },
+  { label: 'Mis reservas', to: '/my-reservations' },
 ];
 
 const redes = [
@@ -34,13 +37,22 @@ const contacto = [
   },
 ];
 
-const Columna = ({ titulo, items }: { titulo: string; items: string[] }) => (
+const Columna = ({ titulo, items }: { titulo: string; items: ItemFooter[] }) => (
   <div className="flex flex-col gap-3">
     <h6 className="font-bold text-white">{titulo}</h6>
     <ul className="flex flex-col gap-2 text-sm text-white/70">
-      {items.map((item) => (
-        <li key={item} className="cursor-default">
-          {item}
+      {items.map(({ label, to }) => (
+        <li key={label} className={to ? undefined : 'cursor-default'}>
+          {to ? (
+            <Link
+              to={to}
+              className="underline-offset-4 transition-colors hover:text-white hover:underline"
+            >
+              {label}
+            </Link>
+          ) : (
+            label
+          )}
         </li>
       ))}
     </ul>
@@ -53,7 +65,7 @@ export const Footer = () => {
       <div className="mx-auto max-w-370 px-4 py-12 sm:px-8">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-4">
-            <Marca variante="oscuro" tamano="xl" />
+            <Marca variante="oscuro" tamano="lg" eslogan={false} />
             <p className="max-w-xs text-sm text-white/70">
               Te acompañamos a descubrir el mundo con las mejores experiencias de viaje.
             </p>

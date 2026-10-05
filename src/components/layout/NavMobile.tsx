@@ -27,13 +27,10 @@ export const NavMobile = ({ open }: NavMobile) => {
                 VUELOS
               </Link>
             </li>
-            <li className="hover:bg-secondary border-b p-1 underline-offset-4 hover:cursor-pointer hover:font-bold hover:text-white">
+            <li className="hover:bg-secondary p-1 underline-offset-4 hover:cursor-pointer hover:font-bold hover:text-white">
               <Link to="/hoteles" className="block">
                 HOTELES
               </Link>
-            </li>
-            <li className="hover:bg-secondary p-1 underline-offset-4 hover:cursor-pointer hover:font-bold hover:text-white">
-              OFERTAS
             </li>
           </ul>
           {user ? (

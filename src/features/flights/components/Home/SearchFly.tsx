@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { Search } from '@/components/ui/Search';
 import { SectionContainer } from '@/components/ui/SectionContainer';
 
@@ -13,7 +14,18 @@ export const SearchFly = () => {
             "No colecciones cosas, coleccioná viajes y momentos inolvidables"
           </h3>
         </div>
-        <Search moodle={false} />
+        <div className="flex w-full flex-col gap-4">
+          <Search moodle={false} />
+          <p className="text-center text-sm text-white/90 drop-shadow">
+            ¿Buscás alojamiento?{' '}
+            <Link
+              to="/hoteles"
+              className="font-semibold underline underline-offset-4 hover:text-white"
+            >
+              Ver hoteles <span aria-hidden="true">→</span>
+            </Link>
+          </p>
+        </div>
       </SectionContainer>
     </div>
   );

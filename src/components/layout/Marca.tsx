@@ -1,6 +1,8 @@
 interface MarcaProps {
   variante?: 'claro' | 'oscuro';
   tamano?: 'sm' | 'lg' | 'xl';
+  /** Muestra "Vuela diferente" bajo el nombre (por defecto, si). */
+  eslogan?: boolean;
 }
 
 const estilos = {
@@ -24,7 +26,7 @@ const estilos = {
   },
 };
 
-export const Marca = ({ variante = 'claro', tamano = 'lg' }: MarcaProps) => {
+export const Marca = ({ variante = 'claro', tamano = 'lg', eslogan = true }: MarcaProps) => {
   const oscuro = variante === 'oscuro';
   const e = estilos[tamano];
 
@@ -39,13 +41,15 @@ export const Marca = ({ variante = 'claro', tamano = 'lg' }: MarcaProps) => {
         >
           DESPESCAR
         </h3>
-        <span
-          className={`${e.bajada} text-primary mt-1.5 items-center gap-1.5 font-semibold tracking-[0.2em] uppercase`}
-        >
-          <span aria-hidden="true" className="bg-primary h-px w-3" />
-          Vuela diferente
-          <span aria-hidden="true" className="bg-primary h-px w-3" />
-        </span>
+        {eslogan && (
+          <span
+            className={`${e.bajada} text-primary mt-1.5 items-center gap-1.5 font-semibold tracking-[0.2em] uppercase`}
+          >
+            <span aria-hidden="true" className="bg-primary h-px w-3" />
+            Vuela diferente
+            <span aria-hidden="true" className="bg-primary h-px w-3" />
+          </span>
+        )}
       </div>
     </div>
   );

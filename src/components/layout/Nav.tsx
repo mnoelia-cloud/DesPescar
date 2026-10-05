@@ -39,7 +39,7 @@ export const Nav = () => {
           <Link to="/" aria-label="Despescar, inicio">
             <Marca />
           </Link>
-          <ul className="hidden w-100 flex-row justify-between md:flex">
+          <ul className="hidden flex-row gap-10 md:flex">
             <li className="hover:text-primary underline-offset-4 hover:cursor-pointer hover:font-bold hover:underline">
               <Link to="/" className="block">
                 VUELOS
@@ -49,9 +49,6 @@ export const Nav = () => {
               <Link to="/hoteles" className="block">
                 HOTELES
               </Link>
-            </li>
-            <li className="hover:text-primary underline-offset-4 hover:cursor-pointer hover:font-bold hover:underline">
-              OFERTAS
             </li>
           </ul>
           <div className="flex items-center gap-2 md:gap-4">
