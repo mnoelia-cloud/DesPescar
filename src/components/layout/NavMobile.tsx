@@ -23,7 +23,9 @@ export const NavMobile = ({ open }: NavMobile) => {
         <div className="flex flex-col md:hidden">
           <ul className="flex w-full flex-col justify-between border-t text-center">
             <li className="hover:bg-secondary border-b p-1 underline-offset-4 hover:cursor-pointer hover:font-bold hover:text-white">
-              VUELOS
+              <Link to="/" className="block">
+                VUELOS
+              </Link>
             </li>
             <li className="hover:bg-secondary border-b p-1 underline-offset-4 hover:cursor-pointer hover:font-bold hover:text-white">
               <Link to="/hoteles" className="block">

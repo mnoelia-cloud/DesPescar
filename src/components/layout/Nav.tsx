@@ -41,7 +41,9 @@ export const Nav = () => {
           </Link>
           <ul className="hidden w-100 flex-row justify-between md:flex">
             <li className="hover:text-primary underline-offset-4 hover:cursor-pointer hover:font-bold hover:underline">
-              VUELOS
+              <Link to="/" className="block">
+                VUELOS
+              </Link>
             </li>
             <li className="hover:text-primary underline-offset-4 hover:cursor-pointer hover:font-bold hover:underline">
               <Link to="/hoteles" className="block">
