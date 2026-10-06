@@ -35,8 +35,9 @@ export const DetailSelectionSeats = () => {
   };
 
   return (
-    // Siempre a la vista: panel fijo a la izquierda en escritorio y franja compacta pegada bajo el menú en celular/tablet.
-    <div className="sticky top-18 z-30 -mx-4 flex min-w-0 flex-col gap-3 self-stretch border-b border-black/10 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:fixed lg:top-28 lg:left-6 lg:m-0 lg:w-72 lg:gap-3 lg:self-auto lg:rounded-2xl lg:border lg:bg-white lg:p-3 lg:shadow-lg">
+    // Siempre a la vista: en escritorio es una columna a la izquierda que acompaña el scroll (sticky) y se detiene al terminar
+    // la sección, sin tapar el pie de página; en celular/tablet es una franja compacta pegada bajo el menú.
+    <div className="sticky top-18 z-30 -mx-4 flex min-w-0 flex-col gap-3 self-stretch border-b border-black/10 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:top-28 lg:m-0 lg:w-72 lg:gap-3 lg:self-start lg:rounded-2xl lg:border lg:bg-white lg:p-3 lg:shadow-lg">
       <div className="flex flex-col gap-2 lg:gap-2">
         <h2 className="text-secondary text-sm font-bold lg:text-lg">Tipos de asientos</h2>
         <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">

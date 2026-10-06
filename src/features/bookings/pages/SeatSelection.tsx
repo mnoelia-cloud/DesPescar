@@ -71,7 +71,7 @@ const SeatSelectionContent = () => {
   };
 
   return (
-    <SectionContainer className="mx-auto mb-28 flex w-full max-w-312.5 flex-col items-center gap-6 lg:pl-84">
+    <SectionContainer className="mx-auto mb-28 flex w-full max-w-312.5 flex-col items-center gap-6 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-8">
       <DetailSelectionSeats />
       <div className="relative z-1 w-full">
         <AirplaneCanvas></AirplaneCanvas>
