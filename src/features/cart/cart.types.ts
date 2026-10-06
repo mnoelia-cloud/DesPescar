@@ -48,6 +48,11 @@ export interface AsientoCarrito {
   estadoPago: string;
   nombrePasajero: string | null;
   dniPasaporte: string | null;
+  tipoDocumento?: TipoDocumento | null;
+  /** 'YYYY-MM-DD'. */
+  fechaNacimiento?: string | null;
+  genero?: Genero | null;
+  nacionalidad?: string | null;
   tarifaNombre: string | null;
 }
 
@@ -64,6 +69,9 @@ export interface Carrito {
   vuelo: VueloCarrito | null;
   estadias: EstadiaCarrito[];
   asientos: AsientoCarrito[];
+  /** Contacto de quien compra (null hasta que se carga). */
+  contactoEmail?: string | null;
+  contactoTelefono?: string | null;
   creadoEn?: string | null;
   /** Solo en reservas canceladas. */
   motivoCancelacion?: string | null;
@@ -99,13 +107,31 @@ export interface IniciarVueloResponse {
   paymentType: string;
 }
 
+export type TipoDocumento = 'DNI' | 'PASAPORTE';
+/** Como figura en el DNI argentino: F, M o X. */
+export type Genero = 'F' | 'M' | 'X';
+
+/** Lo que pide una aerolínea de cada pasajero para emitir el pasaje. */
 export interface PasajeroInput {
   nombreCompleto: string;
+  tipoDocumento: TipoDocumento | '';
   dniPasaporte: string;
+  /** 'YYYY-MM-DD' (lo que da <input type="date">). */
+  fechaNacimiento: string;
+  genero: Genero | '';
+  nacionalidad: string;
+}
+
+/** Contacto de quien compra. */
+export interface ContactoInput {
+  email: string;
+  telefono: string;
 }
 
 /** Cuerpo de PUT /{id}/passengers: asientoIda es el UUID del asiento bloqueado. */
-export interface PasajeroRequest extends PasajeroInput {
+export interface PasajeroRequest extends Omit<PasajeroInput, 'tipoDocumento' | 'genero'> {
+  tipoDocumento: TipoDocumento;
+  genero: Genero;
   asientoIda: string;
   asientoVuelta: null;
   tarifaId: string;

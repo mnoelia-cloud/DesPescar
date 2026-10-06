@@ -3,8 +3,11 @@ import type {
   Carrito,
   ErrorApi,
   EstadiaCarrito,
+  ContactoInput,
+  Genero,
   PasajeroInput,
   PasajeroRequest,
+  TipoDocumento,
   TitularInput,
   TitularRequest,
   VueloCarrito,
@@ -114,23 +117,90 @@ export const pasajerosVisibles = (c: Carrito): { nombre: string; asiento: string
 };
 
 /** Valores iniciales del formulario: los pasajeros ya cargados (PUT repetido reemplaza) o vacíos. */
+/** La plataforma opera vuelos nacionales: DNI y nacionalidad argentina son lo más común (se pueden cambiar). */
+export const NACIONALIDAD_PREDETERMINADA = 'Argentina';
+
 export const pasajerosIniciales = (c: Carrito): PasajeroInput[] => {
   const cantidad = c.vuelo?.cantidadPasajeros ?? 0;
   return Array.from({ length: cantidad }, (_, i) => {
     const a = c.vuelo?.pasajerosCargados ? c.asientos[i] : undefined;
-    return { nombreCompleto: a?.nombrePasajero ?? '', dniPasaporte: a?.dniPasaporte ?? '' };
+    return {
+      nombreCompleto: a?.nombrePasajero ?? '',
+      tipoDocumento: a?.tipoDocumento ?? 'DNI',
+      dniPasaporte: a?.dniPasaporte ?? '',
+      fechaNacimiento: a?.fechaNacimiento ?? '',
+      genero: a?.genero ?? '',
+      nacionalidad: a?.nacionalidad ?? NACIONALIDAD_PREDETERMINADA,
+    };
   });
 };
 
 const DOCUMENTO = /^[A-Za-z0-9.\- ]{6,20}$/;
 
-export const validarPasajero = (p: PasajeroInput): Partial<Record<keyof PasajeroInput, string>> => {
+const DNI = /^\d{7,8}$/;
+const PASAPORTE = /^[A-Za-z0-9]{6,20}$/;
+const FECHA = /^(\d{4})-(\d{2})-(\d{2})$/;
+const EDAD_MAXIMA = 120;
+
+/** El DNI se escribe con o sin puntos ("30.111.222"): se guarda solo con números. */
+export const normalizarDocumento = (tipo: PasajeroInput['tipoDocumento'], valor: string) =>
+  tipo === 'DNI' ? valor.replace(/[.\s]/g, '') : valor.trim().toUpperCase();
+
+/** null si la fecha de nacimiento sirve; si no, el mensaje para el pasajero. */
+export const validarFechaNacimiento = (valor: string, hoy = new Date()): string | null => {
+  const m = FECHA.exec(valor);
+  if (!m) return 'Ingresá la fecha de nacimiento.';
+  const [anio, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const f = new Date(anio, mes - 1, dia);
+  if (f.getFullYear() !== anio || f.getMonth() !== mes - 1 || f.getDate() !== dia)
+    return 'La fecha de nacimiento no es válida.';
+  if (f > hoy) return 'La fecha de nacimiento no puede ser futura.';
+  if (anio < hoy.getFullYear() - EDAD_MAXIMA) return 'La fecha de nacimiento no es válida.';
+  return null;
+};
+
+export const validarPasajero = (
+  p: PasajeroInput,
+  hoy = new Date(),
+): Partial<Record<keyof PasajeroInput, string>> => {
   const errores: Partial<Record<keyof PasajeroInput, string>> = {};
   const nombre = p.nombreCompleto.trim();
   if (nombre.length < 2 || nombre.length > 100)
     errores.nombreCompleto = 'Ingresá el nombre completo.';
-  if (!DOCUMENTO.test(p.dniPasaporte.trim()))
-    errores.dniPasaporte = 'Ingresá un DNI o pasaporte válido.';
+  if (p.tipoDocumento !== 'DNI' && p.tipoDocumento !== 'PASAPORTE') {
+    errores.tipoDocumento = 'Elegí el tipo de documento.';
+    if (!DOCUMENTO.test(p.dniPasaporte.trim()))
+      errores.dniPasaporte = 'Ingresá un DNI o pasaporte válido.';
+  } else if (p.tipoDocumento === 'DNI') {
+    if (!DNI.test(normalizarDocumento('DNI', p.dniPasaporte)))
+      errores.dniPasaporte = 'Ingresá un DNI válido (7 u 8 números).';
+  } else if (!PASAPORTE.test(normalizarDocumento('PASAPORTE', p.dniPasaporte))) {
+    errores.dniPasaporte = 'Ingresá un número de pasaporte válido (6 a 20 letras o números).';
+  }
+  const fecha = validarFechaNacimiento(p.fechaNacimiento, hoy);
+  if (fecha) errores.fechaNacimiento = fecha;
+  if (p.genero !== 'F' && p.genero !== 'M' && p.genero !== 'X')
+    errores.genero = 'Elegí una opción.';
+  if (!p.nacionalidad.trim()) errores.nacionalidad = 'Elegí la nacionalidad.';
+  return errores;
+};
+
+// ---------- contacto de quien compra ----------
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const TELEFONO = /^[0-9+()\-\s]{6,30}$/;
+
+/** El contacto ya guardado en el carrito o, si no hay, el correo de la cuenta. */
+export const contactoInicial = (c: Carrito, emailCuenta: string): ContactoInput => ({
+  email: c.contactoEmail ?? emailCuenta,
+  telefono: c.contactoTelefono ?? '',
+});
+
+export const validarContacto = (c: ContactoInput): Partial<Record<keyof ContactoInput, string>> => {
+  const errores: Partial<Record<keyof ContactoInput, string>> = {};
+  const email = c.email.trim();
+  if (!EMAIL.test(email) || email.length > 120) errores.email = 'Ingresá un correo válido.';
+  if (!TELEFONO.test(c.telefono.trim())) errores.telefono = 'Ingresá un teléfono válido.';
   return errores;
 };
 
@@ -154,9 +224,14 @@ export const armarPasajeros = (
   v: VueloCarrito,
 ): PasajeroRequest[] | null => {
   if (form.length !== v.cantidadPasajeros || asientos.length !== form.length) return null;
+  if (form.some((p) => !p.tipoDocumento || !p.genero)) return null;
   return form.map((p, i) => ({
     nombreCompleto: p.nombreCompleto.trim(),
-    dniPasaporte: p.dniPasaporte.trim(),
+    tipoDocumento: p.tipoDocumento as TipoDocumento,
+    dniPasaporte: normalizarDocumento(p.tipoDocumento, p.dniPasaporte),
+    fechaNacimiento: p.fechaNacimiento,
+    genero: p.genero as Genero,
+    nacionalidad: p.nacionalidad.trim(),
     asientoIda: asientos[i],
     asientoVuelta: null,
     tarifaId: v.fareIds[0],

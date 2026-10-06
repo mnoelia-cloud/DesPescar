@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Carrito, EstadiaCarrito, VueloCarrito } from './cart.types';
+import type { Carrito, EstadiaCarrito, PasajeroInput, VueloCarrito } from './cart.types';
 import {
   estadoBarraPago,
   esperaParaReconsultar,
@@ -8,17 +8,21 @@ import {
   cantidadEnCarrito,
   capacidadSuficiente,
   carritoAbierto,
+  contactoInicial,
   enGrupo,
   estadoAsientos,
   faltantes,
   formatCuentaRegresiva,
   leerErrorApi,
+  normalizarDocumento,
   opcionesCantidad,
   pasajerosIniciales,
   pasajerosVisibles,
   puedePagar,
   segundosHasta,
   urgencia,
+  validarContacto,
+  validarFechaNacimiento,
   validarPasajero,
   validarTitular,
 } from './carrito';
@@ -169,10 +173,15 @@ describe('pasajeros', () => {
   });
 
   it('el formulario arranca con los pasajeros ya cargados o vacío', () => {
-    expect(pasajerosIniciales(carrito())).toEqual([
-      { nombreCompleto: '', dniPasaporte: '' },
-      { nombreCompleto: '', dniPasaporte: '' },
-    ]);
+    const vacio = {
+      nombreCompleto: '',
+      tipoDocumento: 'DNI',
+      dniPasaporte: '',
+      fechaNacimiento: '',
+      genero: '',
+      nacionalidad: 'Argentina',
+    };
+    expect(pasajerosIniciales(carrito())).toEqual([vacio, vacio]);
     const cargado = carrito({
       vuelo: vuelo({ pasajerosCargados: true, cantidadPasajeros: 1 }),
       asientos: [
@@ -183,35 +192,113 @@ describe('pasajeros', () => {
           precioCobrado: 240000,
           estadoPago: 'PENDIENTE',
           nombrePasajero: 'Ana Pérez',
-          dniPasaporte: '30111222',
+          dniPasaporte: 'AB123456',
+          tipoDocumento: 'PASAPORTE',
+          fechaNacimiento: '1990-05-17',
+          genero: 'X',
+          nacionalidad: 'Uruguay',
           tarifaNombre: 'Light',
         },
       ],
     });
     expect(pasajerosIniciales(cargado)).toEqual([
-      { nombreCompleto: 'Ana Pérez', dniPasaporte: '30111222' },
+      {
+        nombreCompleto: 'Ana Pérez',
+        tipoDocumento: 'PASAPORTE',
+        dniPasaporte: 'AB123456',
+        fechaNacimiento: '1990-05-17',
+        genero: 'X',
+        nacionalidad: 'Uruguay',
+      },
     ]);
   });
 
-  it('valida nombre y documento', () => {
-    expect(validarPasajero({ nombreCompleto: ' ', dniPasaporte: '12' })).toEqual({
-      nombreCompleto: 'Ingresá el nombre completo.',
-      dniPasaporte: 'Ingresá un DNI o pasaporte válido.',
+  const HOY = new Date(2026, 9, 5); // 5/10/2026
+  const completo = (cambios: Partial<PasajeroInput> = {}): PasajeroInput => ({
+    nombreCompleto: 'Ana Pérez',
+    tipoDocumento: 'DNI',
+    dniPasaporte: '30111222',
+    fechaNacimiento: '1990-05-17',
+    genero: 'F',
+    nacionalidad: 'Argentina',
+    ...cambios,
+  });
+
+  it('un pasajero con todos los datos es válido (el DNI admite puntos)', () => {
+    expect(validarPasajero(completo(), HOY)).toEqual({});
+    expect(validarPasajero(completo({ dniPasaporte: '30.111.222' }), HOY)).toEqual({});
+  });
+
+  it('pide cada dato que falta con su mensaje', () => {
+    const vacio = completo({
+      nombreCompleto: ' ',
+      tipoDocumento: '',
+      dniPasaporte: '12',
+      fechaNacimiento: '',
+      genero: '',
+      nacionalidad: ' ',
     });
-    expect(validarPasajero({ nombreCompleto: 'Ana Pérez', dniPasaporte: '30.111.222' })).toEqual(
-      {},
+    expect(validarPasajero(vacio, HOY)).toEqual({
+      nombreCompleto: 'Ingresá el nombre completo.',
+      tipoDocumento: 'Elegí el tipo de documento.',
+      dniPasaporte: 'Ingresá un DNI o pasaporte válido.',
+      fechaNacimiento: 'Ingresá la fecha de nacimiento.',
+      genero: 'Elegí una opción.',
+      nacionalidad: 'Elegí la nacionalidad.',
+    });
+  });
+
+  it('el documento se valida según su tipo', () => {
+    expect(validarPasajero(completo({ dniPasaporte: 'AB123456' }), HOY).dniPasaporte).toBe(
+      'Ingresá un DNI válido (7 u 8 números).',
     );
+    expect(validarPasajero(completo({ dniPasaporte: '123456' }), HOY).dniPasaporte).toBe(
+      'Ingresá un DNI válido (7 u 8 números).',
+    );
+    const pasaporte = completo({ tipoDocumento: 'PASAPORTE', dniPasaporte: 'AB123456' });
+    expect(validarPasajero(pasaporte, HOY)).toEqual({});
+    expect(
+      validarPasajero(completo({ tipoDocumento: 'PASAPORTE', dniPasaporte: 'A1' }), HOY)
+        .dniPasaporte,
+    ).toBe('Ingresá un número de pasaporte válido (6 a 20 letras o números).');
+  });
+
+  it('normaliza el documento: el DNI sin puntos y el pasaporte en mayúsculas', () => {
+    expect(normalizarDocumento('DNI', ' 30.111.222 ')).toBe('30111222');
+    expect(normalizarDocumento('PASAPORTE', ' ab123456 ')).toBe('AB123456');
+  });
+
+  it('valida la fecha de nacimiento', () => {
+    expect(validarFechaNacimiento('1990-05-17', HOY)).toBeNull();
+    expect(validarFechaNacimiento('2026-10-05', HOY)).toBeNull(); // nació hoy
+    expect(validarFechaNacimiento('2026-10-06', HOY)).toBe(
+      'La fecha de nacimiento no puede ser futura.',
+    );
+    expect(validarFechaNacimiento('2026-02-30', HOY)).toBe('La fecha de nacimiento no es válida.');
+    expect(validarFechaNacimiento('1850-01-01', HOY)).toBe('La fecha de nacimiento no es válida.');
+    expect(validarFechaNacimiento('17/05/1990', HOY)).toBe('Ingresá la fecha de nacimiento.');
   });
 
   it('arma el pedido con un asiento por pasajero y la tarifa de ida, sin precio', () => {
     const form = [
-      { nombreCompleto: ' Ana Pérez ', dniPasaporte: '30111222' },
-      { nombreCompleto: 'Luis Gómez', dniPasaporte: 'AB123456' },
+      completo({ nombreCompleto: ' Ana Pérez ', dniPasaporte: '30.111.222' }),
+      completo({
+        nombreCompleto: 'Luis Gómez',
+        tipoDocumento: 'PASAPORTE',
+        dniPasaporte: 'ab123456',
+        fechaNacimiento: '1985-01-02',
+        genero: 'M',
+        nacionalidad: 'Uruguay',
+      }),
     ];
     expect(armarPasajeros(form, ['s1', 's2'], vuelo())).toEqual([
       {
         nombreCompleto: 'Ana Pérez',
+        tipoDocumento: 'DNI',
         dniPasaporte: '30111222',
+        fechaNacimiento: '1990-05-17',
+        genero: 'F',
+        nacionalidad: 'Argentina',
         asientoIda: 's1',
         asientoVuelta: null,
         tarifaId: 'f1',
@@ -219,7 +306,11 @@ describe('pasajeros', () => {
       },
       {
         nombreCompleto: 'Luis Gómez',
+        tipoDocumento: 'PASAPORTE',
         dniPasaporte: 'AB123456',
+        fechaNacimiento: '1985-01-02',
+        genero: 'M',
+        nacionalidad: 'Uruguay',
         asientoIda: 's2',
         asientoVuelta: null,
         tarifaId: 'f1',
@@ -227,6 +318,27 @@ describe('pasajeros', () => {
       },
     ]);
     expect(armarPasajeros(form, ['s1'], vuelo())).toBeNull();
+    expect(
+      armarPasajeros([completo({ genero: '' }), completo()], ['s1', 's2'], vuelo()),
+    ).toBeNull();
+  });
+
+  it('el contacto arranca con el guardado o con el correo de la cuenta, y se valida', () => {
+    expect(contactoInicial(carrito(), 'cuenta@correo.com')).toEqual({
+      email: 'cuenta@correo.com',
+      telefono: '',
+    });
+    expect(
+      contactoInicial(
+        carrito({ contactoEmail: 'otro@correo.com', contactoTelefono: '+54 11 5555-1234' }),
+        'cuenta@correo.com',
+      ),
+    ).toEqual({ email: 'otro@correo.com', telefono: '+54 11 5555-1234' });
+    expect(validarContacto({ email: 'ana@correo.com', telefono: '+54 11 5555-1234' })).toEqual({});
+    expect(validarContacto({ email: 'ana@', telefono: '12' })).toEqual({
+      email: 'Ingresá un correo válido.',
+      telefono: 'Ingresá un teléfono válido.',
+    });
   });
 
   it('sabe si los asientos guardados sirven para el vuelo del carrito', () => {

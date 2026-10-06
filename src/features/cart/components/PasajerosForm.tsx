@@ -5,13 +5,23 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
   type Ref,
+  type SelectHTMLAttributes,
 } from 'react';
 import { Link } from 'react-router';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useCarritoStore } from '@/store/useCarritoStore';
 import { useFlightStore } from '@/store/useFlightStore';
 import { cn } from '@/utils/cn';
-import type { Carrito, PasajeroInput, VueloCarrito } from '../cart.types';
-import { armarPasajeros, estadoAsientos, pasajerosIniciales, validarPasajero } from '../carrito';
+import { NACIONALIDADES } from '@/utils/countries';
+import type { Carrito, ContactoInput, PasajeroInput, VueloCarrito } from '../cart.types';
+import {
+  armarPasajeros,
+  contactoInicial,
+  estadoAsientos,
+  pasajerosIniciales,
+  validarContacto,
+  validarPasajero,
+} from '../carrito';
 import { useFocoFormulario } from '../hooks/useFocoFormulario';
 import { useCarritoUi } from './carritoUi';
 import { BOTON_BORDE, BOTON_LLENO, CARD, FOCO } from './estilos';
@@ -20,6 +30,13 @@ export const inputClass =
   'focus:border-secondary focus:ring-secondary/20 h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-secondary outline-none focus:ring-2 aria-invalid:border-alert';
 
 type Errores = Partial<Record<keyof PasajeroInput, string>>;
+type ErroresContacto = Partial<Record<keyof ContactoInput, string>>;
+
+/** Hoy en hora local ('YYYY-MM-DD'): toISOString usa UTC y de noche daría el día siguiente. */
+const hoyLocal = () => {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
 
 const Aviso = ({ children }: { children: ReactNode }) => (
   <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
@@ -95,6 +112,38 @@ export const Campo = ({
   </div>
 );
 
+/** Lista desplegable con el mismo aspecto y la misma accesibilidad que Campo. */
+export const CampoSelect = ({
+  id,
+  label,
+  error,
+  children,
+  ...select
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  children: ReactNode;
+} & SelectHTMLAttributes<HTMLSelectElement>) => (
+  <div className="text-secondary flex flex-col gap-1 text-sm font-medium">
+    <label htmlFor={id}>{label}</label>
+    <select
+      id={id}
+      aria-invalid={Boolean(error)}
+      aria-describedby={error ? `${id}-error` : undefined}
+      className={inputClass}
+      {...select}
+    >
+      {children}
+    </select>
+    {error && (
+      <span id={`${id}-error`} className="text-alert text-xs">
+        {error}
+      </span>
+    )}
+  </div>
+);
+
 /**
  * Datos de los pasajeros (D26: antes en Booking.tsx). Asientos de useFlightStore, en orden.
  * Un PUT repetido reemplaza los pasajeros, así que una vez cargados se pueden cambiar.
@@ -103,11 +152,16 @@ export const PasajerosForm = ({ carrito, vuelo }: { carrito: Carrito; vuelo: Vue
   const vueloElegido = useFlightStore((s) => s.selectedDepartureFlight);
   const asientos = useFlightStore((s) => s.selectedSeats);
   const cargarPasajeros = useCarritoStore((s) => s.cargarPasajeros);
+  const emailCuenta = useAuthStore((s) => s.user?.email ?? '');
   const { anunciar, marcarEdicion } = useCarritoUi();
   const { formRef, botonRef, seccionRef, enfocarDespues, enfocarPrimerError } = useFocoFormulario();
   const [form, setForm] = useState<PasajeroInput[]>(() => pasajerosIniciales(carrito));
   const [editando, setEditando] = useState(false);
   const [errores, setErrores] = useState<Errores[]>([]);
+  const [contacto, setContacto] = useState<ContactoInput>(() =>
+    contactoInicial(carrito, emailCuenta),
+  );
+  const [erroresContacto, setErroresContacto] = useState<ErroresContacto>({});
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<{ mensaje: string; elegirAsientos: boolean } | null>(null);
 
@@ -123,6 +177,8 @@ export const PasajerosForm = ({ carrito, vuelo }: { carrito: Carrito; vuelo: Vue
 
   const empezarEdicion = () => {
     setForm(pasajerosIniciales(carrito));
+    setContacto(contactoInicial(carrito, emailCuenta));
+    setErroresContacto({});
     setErrores([]);
     setError(null);
     enfocarDespues('formulario');
@@ -138,9 +194,11 @@ export const PasajerosForm = ({ carrito, vuelo }: { carrito: Carrito; vuelo: Vue
     ev.preventDefault();
     if (enviando) return;
     setError(null);
-    const nuevos = form.map(validarPasajero);
+    const nuevos = form.map((p) => validarPasajero(p));
+    const nuevosContacto = validarContacto(contacto);
     setErrores(nuevos);
-    if (nuevos.some((e) => Object.keys(e).length > 0)) {
+    setErroresContacto(nuevosContacto);
+    if (nuevos.some((e) => Object.keys(e).length > 0) || Object.keys(nuevosContacto).length > 0) {
       enfocarPrimerError();
       return;
     }
@@ -150,7 +208,7 @@ export const PasajerosForm = ({ carrito, vuelo }: { carrito: Carrito; vuelo: Vue
       return;
     }
     setEnviando(true);
-    const r = await cargarPasajeros(pedido);
+    const r = await cargarPasajeros(pedido, contacto);
     setEnviando(false);
     if (r.ok) {
       enfocarDespues('cambiar');
@@ -208,16 +266,91 @@ export const PasajerosForm = ({ carrito, vuelo }: { carrito: Carrito; vuelo: Vue
                   error={errores[i]?.nombreCompleto}
                 />
                 <Campo
+                  id={`pasajero-${i}-nacimiento`}
+                  label="Fecha de nacimiento"
+                  type="date"
+                  autoComplete={i === 0 ? 'bday' : 'off'}
+                  min="1900-01-01"
+                  max={hoyLocal()}
+                  value={p.fechaNacimiento}
+                  onChange={(e) => cambiar(i, 'fechaNacimiento', e.target.value)}
+                  error={errores[i]?.fechaNacimiento}
+                />
+                <CampoSelect
+                  id={`pasajero-${i}-tipo-documento`}
+                  label="Tipo de documento"
+                  value={p.tipoDocumento}
+                  onChange={(e) => cambiar(i, 'tipoDocumento', e.target.value)}
+                  error={errores[i]?.tipoDocumento}
+                >
+                  <option value="">Elegí una opción</option>
+                  <option value="DNI">DNI</option>
+                  <option value="PASAPORTE">Pasaporte</option>
+                </CampoSelect>
+                <Campo
                   id={`pasajero-${i}-documento`}
-                  label="DNI o pasaporte"
+                  label={p.tipoDocumento === 'PASAPORTE' ? 'Número de pasaporte' : 'Número de DNI'}
+                  inputMode={p.tipoDocumento === 'PASAPORTE' ? 'text' : 'numeric'}
                   value={p.dniPasaporte}
                   maxLength={20}
                   onChange={(e) => cambiar(i, 'dniPasaporte', e.target.value)}
                   error={errores[i]?.dniPasaporte}
                 />
+                <CampoSelect
+                  id={`pasajero-${i}-genero`}
+                  label="Género (como figura en el documento)"
+                  value={p.genero}
+                  onChange={(e) => cambiar(i, 'genero', e.target.value)}
+                  error={errores[i]?.genero}
+                >
+                  <option value="">Elegí una opción</option>
+                  <option value="F">Femenino</option>
+                  <option value="M">Masculino</option>
+                  <option value="X">X (no binario)</option>
+                </CampoSelect>
+                <CampoSelect
+                  id={`pasajero-${i}-nacionalidad`}
+                  label="Nacionalidad"
+                  value={p.nacionalidad}
+                  onChange={(e) => cambiar(i, 'nacionalidad', e.target.value)}
+                  error={errores[i]?.nacionalidad}
+                >
+                  <option value="">Elegí una opción</option>
+                  {NACIONALIDADES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </CampoSelect>
               </div>
             </fieldset>
           ))}
+          <fieldset className="flex min-w-0 flex-col gap-3 rounded-xl border border-[#E2E8F0] p-4">
+            <legend className="text-secondary px-1 font-semibold">Contacto de quien compra</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Campo
+                id="contacto-email"
+                label="Correo electrónico"
+                type="email"
+                autoComplete="email"
+                value={contacto.email}
+                maxLength={120}
+                onChange={(e) => setContacto((c) => ({ ...c, email: e.target.value }))}
+                error={erroresContacto.email}
+              />
+              <Campo
+                id="contacto-telefono"
+                label="Teléfono"
+                type="tel"
+                autoComplete="tel"
+                placeholder="+54 11 5555-5555"
+                value={contacto.telefono}
+                maxLength={30}
+                onChange={(e) => setContacto((c) => ({ ...c, telefono: e.target.value }))}
+                error={erroresContacto.telefono}
+              />
+            </div>
+          </fieldset>
           {estado === 'faltan' && (
             <Aviso>
               Tenés {asientos.length} de {vuelo.cantidadPasajeros} asientos elegidos.{' '}

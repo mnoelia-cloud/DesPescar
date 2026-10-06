@@ -3,6 +3,7 @@ import type {
   AgregarEstadiaRequest,
   Carrito,
   ErrorApi,
+  ContactoInput,
   PasajeroRequest,
   TitularRequest,
 } from '@/features/cart/cart.types';
@@ -33,7 +34,7 @@ interface CarritoState {
   quitarVuelo: () => Promise<Resultado>;
   cargarTitulares: (titulares: TitularRequest[]) => Promise<Resultado>;
   /** PUT de pasajeros (responde sin cuerpo) y después el carrito actualizado. */
-  cargarPasajeros: (pasajeros: PasajeroRequest[]) => Promise<Resultado>;
+  cargarPasajeros: (pasajeros: PasajeroRequest[], contacto?: ContactoInput) => Promise<Resultado>;
   limpiar: () => void;
 }
 
@@ -142,12 +143,12 @@ export const useCarritoStore = create<CarritoState>()((set, get) => {
         'No pudimos guardar los titulares.',
       );
     },
-    cargarPasajeros: async (pasajeros) => {
+    cargarPasajeros: async (pasajeros, contacto) => {
       const c = get().carrito;
       if (!c)
         return { ok: false, error: { status: null, codigo: null, mensaje: 'No hay carrito.' } };
       return accion(async () => {
-        await carritoService.cargarPasajeros(c.idCarrito, pasajeros);
+        await carritoService.cargarPasajeros(c.idCarrito, pasajeros, contacto);
         return carritoService.obtenerCarrito();
       }, 'No pudimos guardar los pasajeros.');
     },

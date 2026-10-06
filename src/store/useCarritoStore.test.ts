@@ -138,20 +138,25 @@ describe('useCarritoStore', () => {
       const pasajeros = [
         {
           nombreCompleto: 'Ana Pérez',
+          tipoDocumento: 'DNI' as const,
           dniPasaporte: '30111222',
+          fechaNacimiento: '1990-05-17',
+          genero: 'F' as const,
+          nacionalidad: 'Argentina',
           asientoIda: 'a1',
           asientoVuelta: null,
           tarifaId: 'f1',
           tarifaNombre: 'Light',
         },
       ];
-      expect((await useCarritoStore.getState().cargarPasajeros(pasajeros)).ok).toBe(true);
-      expect(carritoService.cargarPasajeros).toHaveBeenCalledWith(1, pasajeros);
+      const contacto = { email: 'ana@correo.com', telefono: '+54 11 5555-1234' };
+      expect((await useCarritoStore.getState().cargarPasajeros(pasajeros, contacto)).ok).toBe(true);
+      expect(carritoService.cargarPasajeros).toHaveBeenCalledWith(1, pasajeros, contacto);
       expect(useCarritoStore.getState().carrito?.montoTotal).toBe(2000);
 
       vi.mocked(carritoService.cargarPasajeros).mockRejectedValueOnce(error410);
       vi.mocked(carritoService.obtenerCarrito).mockResolvedValueOnce(null);
-      const r = await useCarritoStore.getState().cargarPasajeros(pasajeros);
+      const r = await useCarritoStore.getState().cargarPasajeros(pasajeros, contacto);
       expect(r.ok).toBe(false);
       expect(useCarritoStore.getState().expirado).toBe(true);
     });

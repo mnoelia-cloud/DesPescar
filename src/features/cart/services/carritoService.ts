@@ -2,6 +2,7 @@ import { api } from '@/config/api';
 import type {
   AgregarEstadiaRequest,
   Carrito,
+  ContactoInput,
   IniciarVueloRequest,
   IniciarVueloResponse,
   PasajeroRequest,
@@ -40,8 +41,18 @@ export const iniciarVuelo = async (pedido: IniciarVueloRequest): Promise<Iniciar
   return res.data;
 };
 
-export const cargarPasajeros = async (id: number, pasajeros: PasajeroRequest[]): Promise<void> => {
-  await api.put(`${BASE}/${id}/passengers`, { pasajeros });
+export const cargarPasajeros = async (
+  id: number,
+  pasajeros: PasajeroRequest[],
+  contacto?: ContactoInput,
+): Promise<void> => {
+  await api.put(`${BASE}/${id}/passengers`, {
+    pasajeros,
+    ...(contacto && {
+      contactoEmail: contacto.email.trim(),
+      contactoTelefono: contacto.telefono.trim(),
+    }),
+  });
 };
 
 export const cargarTitulares = async (
