@@ -7,16 +7,34 @@ export const useAeropuerto = () => {
   const [aeropuertos, setAero] = useState<Airport[]>([]);
 
   useEffect(() => {
-    const fetchAeropuertos = async () => {
+    let activo = true;
+    let reintento: number | undefined;
+
+    // Si el servicio de vuelos está reiniciando, el primer pedido falla: se reintenta
+    // (2 s, 4 s, 8 s, 16 s) en lugar de dejar el buscador sin aeropuertos hasta recargar.
+    const fetchAeropuertos = async (intento: number) => {
       try {
         const res = await api.get<Airport[]>('/api/airports');
-        setAero(res.data.filter((airport) => airport.country === NATIONAL_COUNTRY));
+        if (activo) {
+          setAero(res.data.filter((airport) => airport.country === NATIONAL_COUNTRY));
+        }
       } catch {
-        console.error('ERROR');
+        if (activo && intento < 4) {
+          reintento = window.setTimeout(
+            () => void fetchAeropuertos(intento + 1),
+            2000 * 2 ** intento,
+          );
+        } else if (activo) {
+          console.error('No se pudieron cargar los aeropuertos.');
+        }
       }
     };
 
-    fetchAeropuertos();
+    void fetchAeropuertos(0);
+    return () => {
+      activo = false;
+      window.clearTimeout(reintento);
+    };
   }, []);
 
   return {

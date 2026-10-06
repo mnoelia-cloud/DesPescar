@@ -8,8 +8,7 @@ interface AdminLayoutProps {
   /** Menú lateral del panel (general, aerolínea u hotel). */
   navItems: AdminNavItem[];
   sidebarSubtitle?: string;
-  /** Sobrescribe el nombre/rol del header (por defecto sale del usuario logueado). */
-  userName?: string;
+  /** Sobrescribe el rol del header (por defecto sale del usuario logueado). */
   userRole?: string;
 }
 
@@ -20,7 +19,6 @@ interface AdminLayoutProps {
 export const AdminLayout = ({
   navItems,
   sidebarSubtitle,
-  userName,
   userRole,
 }: AdminLayoutProps) => {
   // En pantallas chicas el menú lateral es un drawer que se abre desde el header.
@@ -36,7 +34,6 @@ export const AdminLayout = ({
       />
       <div className="flex h-dvh min-w-0 flex-1 flex-col">
         <AdminHeader
-          userName={userName}
           userRole={userRole}
           onMenuClick={() => setMenuOpen(true)}
         />

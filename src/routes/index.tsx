@@ -35,6 +35,7 @@ import { CarritoPage } from '@/features/cart/pages/CarritoPage';
 import { GrupoInvitacionPage } from '@/features/grupo/pages/GrupoInvitacionPage';
 import { PagoResultadoPage } from '@/features/payments/pages/PagoResultadoPage';
 import { PagoSimuladoPage } from '@/features/payments/pages/PagoSimuladoPage';
+import { PagoMercadoPagoPage } from '@/features/payments/pages/PagoMercadoPagoPage';
 import { createBrowserRouter, Navigate } from 'react-router';
 
 export const router = createBrowserRouter([
@@ -77,13 +78,16 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        // Equipaje no necesita sesión: solo lee el vuelo elegido del store local.
+        path: '/booking/baggage',
+        element: <Baggage />,
+      },
+      {
+        // Asientos reserva lugares a nombre del usuario (websocket autenticado): acá se pide
+        // iniciar sesión y se vuelve con el vuelo todavía seleccionado.
         path: '/booking',
         element: <ProtectedRoute />,
         children: [
-          {
-            path: 'baggage',
-            element: <Baggage />,
-          },
           {
             path: 'seats',
             element: <SeatSelection />,
@@ -104,6 +108,10 @@ export const router = createBrowserRouter([
           {
             path: '/pago/simulado',
             element: <PagoSimuladoPage />,
+          },
+          {
+            path: '/pago/mercadopago',
+            element: <PagoMercadoPagoPage />,
           },
           {
             path: '/pago/resultado',

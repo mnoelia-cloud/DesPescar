@@ -3,6 +3,7 @@ import type { Grupo } from '@/features/grupo/grupo.types';
 import type { Pago } from './payments.types';
 import {
   debeConciliar,
+  ordenPendiente,
   urlResultado,
   ESPERA_MAXIMA_MS,
   limpiarAlConfirmar,
@@ -145,6 +146,25 @@ describe('seguirConsultando', () => {
   it('se detiene con un estado final o al pasar el máximo', () => {
     expect(seguirConsultando(false, 0, 1000)).toBe(false);
     expect(seguirConsultando(true, 1000, 1000 + ESPERA_MAXIMA_MS)).toBe(false);
+  });
+});
+
+describe('ordenPendiente', () => {
+  it('devuelve la orden de un pago de Mercado Pago (Orders) que sigue pendiente', () => {
+    expect(
+      ordenPendiente({ status: 'PENDING', transactionId: 'ORD01JS2V6CM8KJ0EC4H502TGK1WP' }),
+    ).toBe('ORD01JS2V6CM8KJ0EC4H502TGK1WP');
+    expect(ordenPendiente({ status: 'AUTHORIZED', transactionId: 'ORDTST01KB0J' })).toBe(
+      'ORDTST01KB0J',
+    );
+  });
+
+  it('no hay nada que releer sin orden, con otro cobro o con estado final', () => {
+    expect(ordenPendiente({ status: 'PENDING', transactionId: null })).toBeNull();
+    expect(ordenPendiente({ status: 'PENDING', transactionId: 'MOCK-1' })).toBeNull();
+    expect(ordenPendiente({ status: 'PENDING', transactionId: '123456' })).toBeNull();
+    expect(ordenPendiente({ status: 'APPROVED', transactionId: 'ORD01' })).toBeNull();
+    expect(ordenPendiente({ status: 'REJECTED', transactionId: 'ORD01' })).toBeNull();
   });
 });
 

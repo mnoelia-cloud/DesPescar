@@ -6,6 +6,7 @@ describe('isTrustedPaymentUrl', () => {
     'https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=1',
     'https://sandbox.mercadopago.com.ar/checkout/v1/redirect?pref_id=1',
     '/pago/simulado?pago=7f0c3a52-1d7e-4a8e-9a51-0d2f0a3b1c11',
+    '/pago/mercadopago?pago=7f0c3a52-1d7e-4a8e-9a51-0d2f0a3b1c11',
     '/pago/resultado?reserva=12',
   ])('acepta %s', (url) => expect(isTrustedPaymentUrl(url)).toBe(true));
 
@@ -26,6 +27,9 @@ describe('isTrustedPaymentUrl', () => {
     'https://evil.com/pago/simulado?pago=1',
     '/pago/otra-cosa',
     '/pago/simuladox',
+    '/pago/mercadopagox',
+    '//evil.com/pago/mercadopago',
+    'https://evil.com/pago/mercadopago?pago=1',
     '/pago/simulado/../../admin',
     '/pago/simulado/%2e%2e/admin',
     '/pago/simulado/..%2f..',

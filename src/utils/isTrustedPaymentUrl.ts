@@ -1,11 +1,11 @@
 // mercadopago.com, mercadopago.com.ar, sandbox.mercadopago.com.ar, www.mercadopago.com.br, etc.
 const MERCADO_PAGO_HOST = /(^|\.)mercadopago\.com(\.[a-z]{2})?$/;
 
-// Paginas del propio front a las que puede mandar payment-service (proveedor mock).
-const RUTAS_PROPIAS = ['/pago/simulado', '/pago/resultado'];
+// Paginas del propio front a las que puede mandar payment-service (mock y Mercado Pago Orders).
+const RUTAS_PROPIAS = ['/pago/simulado', '/pago/mercadopago', '/pago/resultado'];
 const BASE = 'https://despescar.invalid';
 
-/** "/pago/simulado?pago=..." o "/pago/resultado?...": ruta relativa, sin dominio ni "..". */
+/** "/pago/simulado?pago=...", "/pago/mercadopago?pago=..." o "/pago/resultado?...": ruta relativa, sin dominio ni "..". */
 export const esRutaPropiaDePago = (url: string) => {
   if (!url.startsWith('/') || url.startsWith('//') || url.includes('\\')) return false;
   try {

@@ -9,7 +9,14 @@ describe('destinoPago', () => {
     });
   });
 
-  it('Mercado Pago se abre como pagina externa', () => {
+  it('la pagina de tarjeta de Mercado Pago (Orders) se abre dentro del front', () => {
+    expect(destinoPago('/pago/mercadopago?pago=abc')).toEqual({
+      tipo: 'interno',
+      ruta: '/pago/mercadopago?pago=abc',
+    });
+  });
+
+  it('Mercado Pago Checkout Pro se abre como pagina externa', () => {
     const url = 'https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=1';
     expect(destinoPago(url)).toEqual({ tipo: 'externo', url });
   });

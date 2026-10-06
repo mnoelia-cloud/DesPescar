@@ -1,6 +1,7 @@
 import { api } from '@/config/api';
-import { debeConciliar, ultimoPago } from '../pagos';
-import type { EstadoPago, Pago, RetornoPago } from '../payments.types';
+import type { OrdenPagoInput } from '../mercadoPago';
+import { debeConciliar, ordenPendiente, ultimoPago } from '../pagos';
+import type { ConfigPagos, EstadoPago, Pago, ResultadoOrden, RetornoPago } from '../payments.types';
 
 const BASE = '/api/payments';
 
@@ -29,7 +30,22 @@ export const simularPago = async (id: string, aprobado: boolean): Promise<Pago> 
   return res.data;
 };
 
-/** Solo con Mercado Pago: confirma el pago con el payment_id que agregó MP a la back_url. */
+/** Proveedor activo y, con Mercado Pago (Orders), la public key para MercadoPago.js. */
+export const configPagos = async (): Promise<ConfigPagos> => {
+  const res = await api.get<ConfigPagos>(`${BASE}/config`);
+  return res.data;
+};
+
+/** Solo con Mercado Pago (Orders): cobra el pago con el token de tarjeta del Brick. */
+export const cobrarConOrden = async (
+  id: string,
+  orden: OrdenPagoInput,
+): Promise<ResultadoOrden> => {
+  const res = await api.post<ResultadoOrden>(`${BASE}/${encodeURIComponent(id)}/orden`, orden);
+  return res.data;
+};
+
+/** Solo con Mercado Pago: confirma el pago con el payment_id (Checkout Pro) o el id de la orden (Orders). */
 export const conciliarPago = async (id: string, mpPaymentId: string): Promise<Pago> => {
   const res = await api.post<Pago>(`${BASE}/${encodeURIComponent(id)}/conciliacion`, {
     mpPaymentId,
@@ -38,16 +54,26 @@ export const conciliarPago = async (id: string, mpPaymentId: string): Promise<Pa
 };
 
 /**
- * El pago al que apunta la vuelta de la pasarela. Con el mock, el último de la reserva (o de la
- * parte, si la URL la trae); con Mercado Pago concilia con el payment_id mientras el pago siga
- * pendiente (D16) y, si no se puede, devuelve el estado guardado. null si la reserva no tiene pagos.
+ * El pago al que apunta la vuelta de la pasarela. Con las páginas propias (mock y Mercado Pago
+ * Orders), el último de la reserva (o de la parte, si la URL la trae), releyendo la orden si quedó
+ * en proceso; con Checkout Pro concilia con el payment_id mientras el pago siga pendiente (D16)
+ * y, si no se puede, devuelve el estado guardado. null si la reserva no tiene pagos.
  */
 export const leerPagoDeRetorno = async (
   retorno: RetornoPago,
   estadoPrevio: EstadoPago | null,
 ): Promise<Pago | null> => {
   if (retorno.tipo === 'mock') {
-    return ultimoPago(await pagosDeReserva(retorno.reservaId), retorno.parte ?? undefined);
+    const pago = ultimoPago(await pagosDeReserva(retorno.reservaId), retorno.parte ?? undefined);
+    const orden = pago ? ordenPendiente(pago) : null;
+    if (pago && orden) {
+      try {
+        return await conciliarPago(pago.id, orden);
+      } catch {
+        // Si Mercado Pago todavía no la resolvió, se muestra el estado guardado.
+      }
+    }
+    return pago;
   }
   if (debeConciliar(estadoPrevio, retorno.mpPaymentId)) {
     try {

@@ -2,11 +2,14 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
+import { GoogleSignIn } from './GoogleSignIn';
 import type { errorAuth, InterfaceAuth } from '../auth.types';
 
 export const LoginForm = () => {
-  const { executeLogin, errorAuth, clearFieldError } = useAuth();
+  const { executeLogin, executeGoogleLogin, errorAuth, clearFieldError } = useAuth();
   const location = useLocation();
+  // El registro manda acá el correo recién creado para mostrar el aviso y dejarlo cargado
+  const cuentaCreada = (location.state as { cuentaCreada?: string } | null)?.cuentaCreada;
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,6 +36,15 @@ export const LoginForm = () => {
     >
       <h2 className="text-secondary text-xl font-bold">Inicia sesión en tu cuenta</h2>
       <div className="flex w-full flex-col gap-4">
+        {cuentaCreada && !errorAuth && (
+          <p
+            className="flex items-center gap-2 text-[14px] font-semibold text-green-700"
+            role="status"
+          >
+            <span className="material-symbols-outlined">check_circle</span> Cuenta creada. Ingresá
+            con tu contraseña.
+          </p>
+        )}
         {!errorAuth?.errors && errorAuth?.message && (
           <h3 className="flex shrink-0 items-center gap-2 text-[14px] text-red-400 transition-colors duration-200">
             <span className="material-symbols-outlined">error</span> {errorAuth?.message}
@@ -43,6 +55,7 @@ export const LoginForm = () => {
           name="email"
           type="email"
           icon="alternate_email"
+          defaultValue={cuentaCreada ?? ''}
           className="border-secondary focus-within:bg-primary h-15 border-2 bg-white"
           fontColor="text-black"
           focusColor="text-white"
@@ -55,7 +68,7 @@ export const LoginForm = () => {
           name="password"
           icon="password"
           type="password"
-          autoComplete="new-password"
+          autoComplete="current-password"
           className="border-secondary focus-within:bg-primary h-15 border-2 bg-white"
           fontColor="text-black"
           focusColor="text-white"
@@ -63,16 +76,13 @@ export const LoginForm = () => {
           onChange={handleInputChange}
           required
         ></Input>
-        <Button className="h-12 border-2">Iniciar Sesión</Button>
+        <Button type="submit" className="h-12 border-2">
+          Iniciar Sesión
+        </Button>
       </div>
       <div className="flex w-full flex-col items-center gap-4">
         <p className="text-sm font-semibold">O</p>
-        <Button variant="secondary" className="h-12 border-2">
-          <i className="fa-brands fa-google"></i> Continuar con Google
-        </Button>
-        <Button variant="secondary" className="h-12 border-2">
-          <i className="fa-brands fa-apple"></i> Continuar con Apple
-        </Button>
+        <GoogleSignIn onCredential={(credential) => void executeGoogleLogin(credential)} />
       </div>
       <div className="flex flex-col items-center gap-4 text-[#df6a17]">
         <h3 className="cursor-pointer font-medium">¿Olvidaste tu contraseña?</h3>

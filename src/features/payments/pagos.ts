@@ -210,6 +210,18 @@ export const seguirConsultando = (pendiente: boolean, inicio: number, ahora: num
 export const debeConciliar = (estado: EstadoPago | null, mpPaymentId: string | null) =>
   Boolean(mpPaymentId) && (estado === null || estado === 'PENDING' || estado === 'AUTHORIZED');
 
+/**
+ * Un pago cobrado con Mercado Pago (Orders) que quedó en proceso: su transactionId es la orden
+ * (ORD...). Mientras siga pendiente, /pago/resultado relee la orden con la conciliación, sin
+ * depender de que llegue el webhook (en local no hay URL pública).
+ */
+export const ordenPendiente = (pago: Pick<Pago, 'status' | 'transactionId'>): string | null =>
+  (pago.status === 'PENDING' || pago.status === 'AUTHORIZED') &&
+  pago.transactionId !== null &&
+  /^ORD[A-Za-z0-9]{1,61}$/.test(pago.transactionId)
+    ? pago.transactionId
+    : null;
+
 const VENTANA_LIMPIEZA_MS = 30 * 60 * 1000;
 
 /**

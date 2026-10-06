@@ -24,6 +24,19 @@ export type RetornoPago =
   | { tipo: 'mock'; reservaId: number; parte: number | null }
   | { tipo: 'mercadopago'; pagoId: string; mpPaymentId: string | null; estadoMp: string | null };
 
+/** GET /api/payments/config. */
+export interface ConfigPagos {
+  provider: 'MOCK' | 'MERCADO_PAGO' | 'MERCADO_PAGO_ORDERS' | string;
+  publicKey: string | null;
+}
+
+/** POST /api/payments/{id}/orden: el pago actualizado y el status_detail de Mercado Pago. */
+export interface ResultadoOrden {
+  pago: Pago;
+  estadoOrden: string | null;
+  detalle: string | null;
+}
+
 export type Tono = 'exito' | 'pendiente' | 'error';
 
 export interface ResultadoPago {
