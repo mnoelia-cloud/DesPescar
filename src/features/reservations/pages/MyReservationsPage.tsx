@@ -1,20 +1,35 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import {
   ReservationTabs,
   type ReservationTab,
 } from '@/features/reservations/components/ReservationTabs';
-import { ProximosTab } from '@/features/reservations/components/tabs/ProximosTab';
-import { HistorialTab } from '@/features/reservations/components/tabs/HistorialTab';
-import { CanceladosTab } from '@/features/reservations/components/tabs/CanceladosTab';
+import { ReservasTab } from '@/features/reservations/components/ReservasTab';
+import {
+  TipoReservaTabs,
+  type TipoReserva,
+} from '@/features/reservations/components/TipoReservaTabs';
+import { useReservations } from '@/features/reservations/hooks/useReservations';
 
-const tabContent: Record<ReservationTab, React.ReactNode> = {
-  proximos: <ProximosTab />,
-  historial: <HistorialTab />,
-  cancelados: <CanceladosTab />,
-};
+const ESTADOS: ReservationTab[] = ['proximos', 'historial', 'cancelados'];
 
 export const MyReservationsPage = () => {
-  const [activeTab, setActiveTab] = useState<ReservationTab>('proximos');
+  // Qué se está viendo queda en la URL (?tipo=hoteles&estado=historial): al volver de un detalle o
+  // al recargar, la página sigue donde estaba.
+  const [params, setParams] = useSearchParams();
+  const tipo: TipoReserva = params.get('tipo') === 'hoteles' ? 'hoteles' : 'vuelos';
+  const estado = ESTADOS.find((e) => e === params.get('estado')) ?? 'proximos';
+  const { vuelos, hoteles, isLoading, error, recargar } = useReservations();
+
+  const elegir = (cambios: { tipo?: TipoReserva; estado?: ReservationTab }) =>
+    setParams(
+      (actual) => {
+        const siguiente = new URLSearchParams(actual);
+        if (cambios.tipo) siguiente.set('tipo', cambios.tipo);
+        if (cambios.estado) siguiente.set('estado', cambios.estado);
+        return siguiente;
+      },
+      { replace: true },
+    );
 
   return (
     <div className="flex flex-col">
@@ -25,13 +40,26 @@ export const MyReservationsPage = () => {
           Mis reservas
         </h1>
         <p className="relative z-10 text-sm font-medium text-white/65 sm:text-[15px]">
-          Gestioná y consultá todas tus reservas.
+          Gestioná y consultá tus vuelos y tus hoteles.
         </p>
       </div>
 
-      <ReservationTabs active={activeTab} onChange={setActiveTab} />
+      <TipoReservaTabs
+        active={tipo}
+        onChange={(t) => elegir({ tipo: t })}
+        proximas={{ vuelos: vuelos.upcoming.length, hoteles: hoteles.upcoming.length }}
+      />
+      <ReservationTabs active={estado} onChange={(e) => elegir({ estado: e })} />
 
-      {tabContent[activeTab]}
+      <ReservasTab
+        tipo={tipo}
+        estado={estado}
+        vuelos={vuelos}
+        hoteles={hoteles}
+        isLoading={isLoading}
+        error={error}
+        onRetry={recargar}
+      />
     </div>
   );
 };

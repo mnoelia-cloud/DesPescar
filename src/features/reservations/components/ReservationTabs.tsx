@@ -3,9 +3,9 @@ import { cn } from '@/utils/cn';
 export type ReservationTab = 'proximos' | 'historial' | 'cancelados';
 
 const tabs: { id: ReservationTab; label: string }[] = [
-  { id: 'proximos', label: 'Próximos viajes' },
+  { id: 'proximos', label: 'Próximas' },
   { id: 'historial', label: 'Historial' },
-  { id: 'cancelados', label: 'Cancelados' },
+  { id: 'cancelados', label: 'Canceladas' },
 ];
 
 interface ReservationTabsProps {

@@ -20,6 +20,7 @@ import {
 import type { Pago, RetornoPago } from '../payments.types';
 import type { EstadoPago } from '../payments.types';
 import { leerPagoDeRetorno } from '../services/pagosService';
+import { rutaMisReservas } from '@/features/reservations/bookingToReservation';
 
 const ICONO = { exito: 'check_circle', pendiente: 'hourglass_top', error: 'cancel' } as const;
 const COLOR = { exito: 'text-success', pendiente: 'text-amber-600', error: 'text-alert' } as const;
@@ -249,7 +250,10 @@ export const PagoResultadoPage = () => {
         )}
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
           {confirmado && (
-            <Link to="/my-reservations" className={cn(BOTON_LLENO, FOCO)}>
+            <Link
+              to={rutaMisReservas(Boolean(datos?.reserva?.vuelo))}
+              className={cn(BOTON_LLENO, FOCO)}
+            >
               Ver mis reservas
             </Link>
           )}

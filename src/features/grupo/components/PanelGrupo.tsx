@@ -22,6 +22,7 @@ import { EditorMontos } from './EditorMontos';
 import { EnlaceGrupo } from './EnlaceGrupo';
 import { PartesGrupo } from './PartesGrupo';
 import { ViajeGrupo } from './ViajeGrupo';
+import { rutaMisReservas } from '@/features/reservations/bookingToReservation';
 
 const TONO: Record<TonoEstado, string> = {
   neutro: 'border-[#E2E8F0] bg-white text-secondary',
@@ -404,7 +405,10 @@ export const PanelGrupo = ({ fuente, onGrupo, titulo = 'Pago en grupo', onSinAcc
           </div>
         )}
         {grupo.estado === 'CONFIRMADO' && grupo.soyOrganizador && (
-          <Link to="/my-reservations" className={cn(BOTON_LLENO, FOCO, 'w-fit')}>
+          <Link
+            to={rutaMisReservas(Boolean(grupo.viaje.vuelo))}
+            className={cn(BOTON_LLENO, FOCO, 'w-fit')}
+          >
             Ver mis reservas
           </Link>
         )}

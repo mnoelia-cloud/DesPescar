@@ -12,6 +12,7 @@ import { formatMonto } from '../grupo';
 import type { FuenteGrupo, Grupo } from '../grupo.types';
 import { participacion } from '../services/grupoService';
 import { PanelGrupo } from './PanelGrupo';
+import { rutaMisReservas } from '@/features/reservations/bookingToReservation';
 
 const ICONO = { exito: 'check_circle', pendiente: 'hourglass_top', error: 'cancel' } as const;
 const COLOR = { exito: 'text-success', pendiente: 'text-amber-600', error: 'text-alert' } as const;
@@ -213,7 +214,10 @@ export const ResultadoParte = ({ retorno, pagoInicial = null }: Props) => {
             </Link>
           )}
           {confirmada && grupo.soyOrganizador && (
-            <Link to="/my-reservations" className={cn(BOTON_LLENO, FOCO)}>
+            <Link
+              to={rutaMisReservas(Boolean(grupo.viaje.vuelo))}
+              className={cn(BOTON_LLENO, FOCO)}
+            >
               Ver mis reservas
             </Link>
           )}

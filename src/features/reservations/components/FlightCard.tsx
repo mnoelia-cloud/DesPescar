@@ -20,6 +20,8 @@ export const FlightCard = ({
 }: FlightCardProps) => {
   const navigate = useNavigate();
 
+  if (!flight.origin || !flight.destination) return null;
+
   const handleManage = () => {
     onManage?.(flight.id);
     navigate(`/my-reservations/${flight.id}/manage`);
@@ -44,11 +46,14 @@ export const FlightCard = ({
     status,
     nextDayArrival,
     passengerName,
+    flightPrice,
     totalPaid,
     hotels,
     refunded,
   } = flight;
-  const hotel = hotels[0];
+  // Esta tarjeta es solo del vuelo: si la reserva también tiene hoteles, se ven en la pestaña Hoteles
+  // y el precio es el del vuelo, no el total de la reserva.
+  const precio = flightPrice ?? totalPaid;
   const isCompleted = status === 'completed';
   const isCancelled = status === 'cancelled';
   const isPast = isCompleted || isCancelled;
@@ -83,112 +88,73 @@ export const FlightCard = ({
     >
       <img
         src={flight.thumbnail}
-        alt={destination?.city ?? hotel?.city ?? ''}
+        alt={destination?.city ?? ''}
         className="h-32 w-full shrink-0 object-cover sm:h-auto sm:w-25"
       />
 
       <div className="flex flex-1 flex-col gap-5 px-4 py-4 sm:flex-row sm:items-center sm:gap-0 sm:px-6 sm:py-5">
-        {origin && destination ? (
-          <div className="flex flex-1 items-center justify-between gap-3 sm:gap-6">
-            <div className="flex flex-col gap-0.5">
-              <span
-                className={cn(
-                  'text-xl leading-tight font-extrabold tracking-tight sm:text-[26px]',
-                  isPast ? 'text-gray-700' : 'text-secondary',
-                )}
-              >
-                {origin.iata}
-              </span>
-              <span className="text-xs font-semibold text-gray-400">{origin.city}</span>
-              <span
-                className={cn(
-                  'mt-1.5 text-base font-bold sm:text-lg',
-                  isPast ? 'text-gray-700' : 'text-secondary',
-                )}
-              >
-                {origin.time}
-              </span>
-              {origin.date && (
-                <span className="text-[11px] font-semibold text-gray-400">{origin.date}</span>
+        <div className="flex flex-1 items-center justify-between gap-3 sm:gap-6">
+          <div className="flex flex-col gap-0.5">
+            <span
+              className={cn(
+                'text-xl leading-tight font-extrabold tracking-tight sm:text-[26px]',
+                isPast ? 'text-gray-700' : 'text-secondary',
               )}
-            </div>
-
-            <div className="flex shrink-0 flex-col items-center gap-1.5">
-              <span
-                className={cn(
-                  'material-symbols-outlined text-[22px]!',
-                  isPast ? 'text-gray-400' : 'text-primary',
-                )}
-              >
-                flight_takeoff
-              </span>
-              <div className="hidden items-center gap-1 sm:flex">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-1.5 w-1.5 rounded-full bg-gray-200" />
-                ))}
-              </div>
-              {badge}
-            </div>
-
-            <div className="flex flex-col items-end gap-0.5 text-right">
-              <span
-                className={cn(
-                  'text-xl leading-tight font-extrabold tracking-tight sm:text-[26px]',
-                  isPast ? 'text-gray-700' : 'text-secondary',
-                )}
-              >
-                {destination.iata}
-              </span>
-              <span className="text-xs font-semibold text-gray-400">{destination.city}</span>
-              <span
-                className={cn(
-                  'mt-1.5 text-base font-bold sm:text-lg',
-                  isPast ? 'text-gray-700' : 'text-secondary',
-                )}
-              >
-                {destination.time}
-                {nextDayArrival && <span className="text-primary align-super text-[10px]">+1</span>}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-1 items-center justify-between gap-3 sm:gap-6">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span
-                className={cn(
-                  'text-xl leading-tight font-extrabold tracking-tight',
-                  isPast ? 'text-gray-700' : 'text-secondary',
-                )}
-              >
-                {hotel?.name ?? 'Reserva'}
-              </span>
-              {hotel && (
-                <>
-                  <span className="text-xs font-semibold text-gray-400">
-                    {hotel.city} · {hotel.room}
-                  </span>
-                  <span className="text-secondary mt-1.5 text-sm font-bold">
-                    {hotel.checkIn} → {hotel.checkOut}
-                  </span>
-                  <span className="text-[11px] font-semibold text-gray-400">
-                    {hotel.nights} {hotel.nights === 1 ? 'noche' : 'noches'}
-                  </span>
-                </>
+            >
+              {origin.iata}
+            </span>
+            <span className="text-xs font-semibold text-gray-400">{origin.city}</span>
+            <span
+              className={cn(
+                'mt-1.5 text-base font-bold sm:text-lg',
+                isPast ? 'text-gray-700' : 'text-secondary',
               )}
-            </div>
-            <div className="flex shrink-0 flex-col items-center gap-1.5">
-              <span
-                className={cn(
-                  'material-symbols-outlined text-[22px]!',
-                  isPast ? 'text-gray-400' : 'text-primary',
-                )}
-              >
-                hotel
-              </span>
-              {badge}
-            </div>
+            >
+              {origin.time}
+            </span>
+            {origin.date && (
+              <span className="text-[11px] font-semibold text-gray-400">{origin.date}</span>
+            )}
           </div>
-        )}
+
+          <div className="flex shrink-0 flex-col items-center gap-1.5">
+            <span
+              className={cn(
+                'material-symbols-outlined text-[22px]!',
+                isPast ? 'text-gray-400' : 'text-primary',
+              )}
+            >
+              flight_takeoff
+            </span>
+            <div className="hidden items-center gap-1 sm:flex">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-1.5 w-1.5 rounded-full bg-gray-200" />
+              ))}
+            </div>
+            {badge}
+          </div>
+
+          <div className="flex flex-col items-end gap-0.5 text-right">
+            <span
+              className={cn(
+                'text-xl leading-tight font-extrabold tracking-tight sm:text-[26px]',
+                isPast ? 'text-gray-700' : 'text-secondary',
+              )}
+            >
+              {destination.iata}
+            </span>
+            <span className="text-xs font-semibold text-gray-400">{destination.city}</span>
+            <span
+              className={cn(
+                'mt-1.5 text-base font-bold sm:text-lg',
+                isPast ? 'text-gray-700' : 'text-secondary',
+              )}
+            >
+              {destination.time}
+              {nextDayArrival && <span className="text-primary align-super text-[10px]">+1</span>}
+            </span>
+          </div>
+        </div>
 
         <div className="flex flex-col gap-1.5 border-t border-gray-200 pt-4 text-[13px] sm:ml-7 sm:min-w-40 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-7">
           {origin && (
@@ -203,36 +169,31 @@ export const FlightCard = ({
               </div>
             </>
           )}
-          {hotel && (
-            <div className="flex items-center gap-2">
-              <span className="min-w-16 font-semibold text-gray-400">Hotel</span>
-              <span className="text-secondary font-bold">
-                {hotels.length === 1 ? hotel.name : `${hotels.length} estadías`}
-              </span>
-            </div>
-          )}
           <div className="flex items-center gap-2">
             <span className="min-w-16 font-semibold text-gray-400">Reserva</span>
             <span className="text-secondary font-bold">{reservationCode}</span>
           </div>
           {passengerName && (
             <div className="flex items-center gap-2">
-              <span className="min-w-16 font-semibold text-gray-400">
-                {origin ? 'Pasajero' : 'Titular'}
-              </span>
+              <span className="min-w-16 font-semibold text-gray-400">Pasajero</span>
               <span className="text-secondary font-bold">{passengerName}</span>
             </div>
           )}
-          {totalPaid != null && (
+          {precio != null && (
             <div className="flex items-center gap-2">
               <span className="min-w-16 font-semibold text-gray-400">Total</span>
-              <span className="text-secondary font-bold">{formatCurrency(totalPaid)}</span>
+              <span className="text-secondary font-bold">{formatCurrency(precio)}</span>
             </div>
           )}
           {isCancelled && refunded != null && (
-            <div className="flex items-center gap-2">
-              <span className="min-w-16 font-semibold text-gray-400">Reembolso</span>
-              <span className="font-bold text-[#15803d]">{formatCurrency(refunded)}</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="min-w-16 font-semibold text-gray-400">Reembolso</span>
+                <span className="font-bold text-[#15803d]">{formatCurrency(refunded)}</span>
+              </div>
+              {hotels.length > 0 && (
+                <span className="pl-18 text-[11px] text-gray-400">de toda la reserva</span>
+              )}
             </div>
           )}
         </div>
@@ -275,15 +236,13 @@ export const FlightCard = ({
           </>
         ) : (
           <>
-            {origin && (
-              <button
-                type="button"
-                onClick={handleManage}
-                className="bg-primary hover:bg-primary/90 min-h-10 cursor-pointer rounded-lg px-4 py-2.5 text-center text-[13px] font-bold whitespace-nowrap text-white transition-colors"
-              >
-                Gestionar viaje
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleManage}
+              className="bg-primary hover:bg-primary/90 min-h-10 cursor-pointer rounded-lg px-4 py-2.5 text-center text-[13px] font-bold whitespace-nowrap text-white transition-colors"
+            >
+              Gestionar viaje
+            </button>
             <button
               type="button"
               onClick={handleViewDetails}
