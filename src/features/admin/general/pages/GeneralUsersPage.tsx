@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   PageHeader,
   SearchFilterBar,
@@ -6,230 +6,142 @@ import {
   DataTable,
   Badge,
   Pagination,
+  Modal,
+  AdminInput,
   type TableColumn,
   type BadgeTone,
 } from '@/components/admin';
+import {
+  crearCuenta,
+  listarUsuarios,
+  type NuevaCuenta,
+  type UsuarioPlataforma,
+} from '@/features/admin/general/services/usuariosService';
+import { getApiErrorMessage } from '@/utils/getApiErrorMessage';
 
 /**
- * Gestión de usuarios de la plataforma: acá es donde el admin general da
- * de alta/baja aerolíneas, hoteles y clientes, aprueba solicitudes
- * pendientes y suspende cuentas. El Dashboard (/admin) es de solo lectura;
- * la gestión real vive acá.
+ * Usuarios de la plataforma (identity-service, solo SUPER_ADMIN): lista las cuentas y permite crear
+ * cuentas de aerolínea, hotel o administración general.
  */
 
-type TipoCuenta = 'Aerolínea' | 'Hotel' | 'Cliente';
-type EstadoCuenta = 'Activo' | 'Pendiente' | 'Suspendido';
+const POR_PAGINA = 10;
 
-interface CuentaPlataforma {
-  id: number;
-  nombre: string;
-  email: string;
-  tipo: TipoCuenta;
-  /** ISO (YYYY-MM-DD) para poder ordenar cronológicamente de verdad. */
-  fechaAltaISO: string;
-  /** ISO datetime, para calcular "hace X" y poder ordenar. */
-  ultimaActividadISO: string;
-  estado: EstadoCuenta;
-}
-
-const cuentasIniciales: CuentaPlataforma[] = [
-  {
-    id: 1,
-    nombre: 'Aerolíneas del Sur',
-    email: 'contacto@aerolineasdelsur.com',
-    tipo: 'Aerolínea',
-    fechaAltaISO: '2026-09-05',
-    ultimaActividadISO: '2026-09-07T09:40:00',
-    estado: 'Pendiente',
-  },
-  {
-    id: 2,
-    nombre: 'Hotel Costanera',
-    email: 'reservas@hotelcostanera.com',
-    tipo: 'Hotel',
-    fechaAltaISO: '2026-09-04',
-    ultimaActividadISO: '2026-09-07T07:50:00',
-    estado: 'Activo',
-  },
-  {
-    id: 3,
-    nombre: 'Martina Suárez',
-    email: 'martina.suarez@email.com',
-    tipo: 'Cliente',
-    fechaAltaISO: '2026-09-04',
-    ultimaActividadISO: '2026-09-06T21:10:00',
-    estado: 'Activo',
-  },
-  {
-    id: 4,
-    nombre: 'Vuela Andes',
-    email: 'admin@vuelaandes.com',
-    tipo: 'Aerolínea',
-    fechaAltaISO: '2026-08-20',
-    ultimaActividadISO: '2026-09-07T08:15:00',
-    estado: 'Suspendido',
-  },
-  {
-    id: 5,
-    nombre: 'Hotel Bahía Norte',
-    email: 'info@hotelbahianorte.com',
-    tipo: 'Hotel',
-    fechaAltaISO: '2026-09-01',
-    ultimaActividadISO: '2026-09-05T12:00:00',
-    estado: 'Pendiente',
-  },
-];
-
-const estadoTone: Record<EstadoCuenta, BadgeTone> = {
-  Activo: 'success',
-  Pendiente: 'warning',
-  Suspendido: 'danger',
+const ROLES: Record<string, { etiqueta: string; tone: BadgeTone }> = {
+  SUPER_ADMIN: { etiqueta: 'Admin general', tone: 'danger' },
+  AIRLINE_ADMIN: { etiqueta: 'Aerolínea', tone: 'dark' },
+  HOTEL_ADMIN: { etiqueta: 'Hotel', tone: 'info' },
+  USER: { etiqueta: 'Cliente', tone: 'neutral' },
 };
 
-const tipoTone: Record<TipoCuenta, BadgeTone> = {
-  Aerolínea: 'dark',
-  Hotel: 'info',
-  Cliente: 'neutral',
+const CUENTA_VACIA: NuevaCuenta = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  role: 'AIRLINE_ADMIN',
 };
-
-const filtroToTipo: Record<string, TipoCuenta | null> = {
-  todos: null,
-  aerolinea: 'Aerolínea',
-  hotel: 'Hotel',
-  cliente: 'Cliente',
-};
-
-const formatFecha = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-
-const formatRelativo = (iso: string) => {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const minutos = Math.round(diffMs / 60000);
-  if (minutos < 1) return 'Recién';
-  if (minutos < 60) return `Hace ${minutos} min`;
-  const horas = Math.round(minutos / 60);
-  if (horas < 24) return `Hace ${horas} h`;
-  const dias = Math.round(horas / 24);
-  return `Hace ${dias} d`;
-};
-
-/** Botón de texto chico, propio de esta tabla (alta/baja no es un ícono genérico). */
-const AccionTexto = ({
-  label,
-  tone,
-  onClick,
-}: {
-  label: string;
-  tone: 'positive' | 'negative';
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={
-      tone === 'positive'
-        ? 'cursor-pointer text-xs font-semibold text-green-700 hover:underline'
-        : 'text-alert cursor-pointer text-xs font-semibold hover:underline'
-    }
-  >
-    {label}
-  </button>
-);
 
 export const GeneralUsersPage = () => {
-  const [cuentas, setCuentas] = useState(cuentasIniciales);
+  const [usuarios, setUsuarios] = useState<UsuarioPlataforma[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filtro, setFiltro] = useState('todos');
   const [page, setPage] = useState(1);
 
-  const cuentasFiltradas = useMemo(() => {
-    const tipoBuscado = filtroToTipo[filtro];
-    return cuentas.filter((c) => {
-      const coincideTipo = !tipoBuscado || c.tipo === tipoBuscado;
-      const coincideBusqueda =
-        !search ||
-        c.nombre.toLowerCase().includes(search.toLowerCase()) ||
-        c.email.toLowerCase().includes(search.toLowerCase());
-      return coincideTipo && coincideBusqueda;
-    });
-  }, [cuentas, search, filtro]);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [cuenta, setCuenta] = useState<NuevaCuenta>(CUENTA_VACIA);
+  const [guardando, setGuardando] = useState(false);
+  const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
-  const cambiarEstado = (id: number, nuevoEstado: EstadoCuenta) => {
-    setCuentas((prev) => prev.map((c) => (c.id === id ? { ...c, estado: nuevoEstado } : c)));
+  // La carga inicial no cambia estado de forma síncrona en el efecto (arranca en "cargando").
+  useEffect(() => {
+    let activo = true;
+    listarUsuarios()
+      .then((lista) => activo && setUsuarios(lista))
+      .catch(
+        (e) => activo && setError(getApiErrorMessage(e, 'No se pudieron cargar los usuarios.')),
+      )
+      .finally(() => activo && setCargando(false));
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  const recargar = async () => {
+    setError(null);
+    try {
+      setUsuarios(await listarUsuarios());
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'No se pudieron cargar los usuarios.'));
+    }
   };
 
-  const columns: TableColumn<CuentaPlataforma>[] = [
+  const filtrados = useMemo(() => {
+    const texto = search.trim().toLowerCase();
+    return usuarios.filter((u) => {
+      const coincideRol = filtro === 'todos' || u.role === filtro;
+      const coincideTexto =
+        !texto ||
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(texto) ||
+        u.email.toLowerCase().includes(texto);
+      return coincideRol && coincideTexto;
+    });
+  }, [usuarios, search, filtro]);
+
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  const visibles = filtrados.slice((page - 1) * POR_PAGINA, page * POR_PAGINA);
+
+  const abrirModal = () => {
+    setCuenta(CUENTA_VACIA);
+    setErrorCuenta(null);
+    setModalAbierto(true);
+  };
+
+  const guardar = async (e: FormEvent) => {
+    e.preventDefault();
+    setGuardando(true);
+    setErrorCuenta(null);
+    try {
+      await crearCuenta(cuenta);
+      setModalAbierto(false);
+      setAviso(
+        `Cuenta ${cuenta.email} creada. Ya puede iniciar sesión con su correo y contraseña.`,
+      );
+      await recargar();
+    } catch (err) {
+      const causa = (err as { cause?: unknown }).cause;
+      setErrorCuenta(
+        causa
+          ? `${(err as Error).message}`
+          : getApiErrorMessage(err, 'No se pudo crear la cuenta.'),
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const columns: TableColumn<UsuarioPlataforma>[] = [
     {
       key: 'nombre',
       header: 'Cuenta',
-      render: (c) => (
+      render: (u) => (
         <div className="flex flex-col">
-          <span className="font-semibold">{c.nombre}</span>
-          <span className="text-xs text-[#44474E]">{c.email}</span>
+          <span className="font-semibold">
+            {u.firstName} {u.lastName}
+          </span>
+          <span className="text-xs text-[#44474E]">{u.email}</span>
         </div>
       ),
     },
     {
-      key: 'tipo',
-      header: 'Tipo',
-      render: (c) => <Badge tone={tipoTone[c.tipo]}>{c.tipo}</Badge>,
-    },
-    {
-      key: 'fechaAltaISO',
-      header: 'Fecha de alta',
-      sortable: true,
-      render: (c) => formatFecha(c.fechaAltaISO),
-    },
-    {
-      key: 'ultimaActividadISO',
-      header: 'Última actividad',
-      sortable: true,
-      render: (c) => formatRelativo(c.ultimaActividadISO),
-    },
-    {
-      key: 'estado',
-      header: 'Estado',
-      render: (c) => <Badge tone={estadoTone[c.estado]}>{c.estado}</Badge>,
-    },
-    {
-      key: 'acciones',
-      header: 'Acciones',
-      render: (c) => (
-        <div className="flex items-center gap-4">
-          {c.estado === 'Pendiente' && (
-            <>
-              <AccionTexto
-                label="Aprobar"
-                tone="positive"
-                onClick={() => cambiarEstado(c.id, 'Activo')}
-              />
-              <AccionTexto
-                label="Rechazar"
-                tone="negative"
-                onClick={() => cambiarEstado(c.id, 'Suspendido')}
-              />
-            </>
-          )}
-          {c.estado === 'Activo' && (
-            <AccionTexto
-              label="Suspender"
-              tone="negative"
-              onClick={() => cambiarEstado(c.id, 'Suspendido')}
-            />
-          )}
-          {c.estado === 'Suspendido' && (
-            <AccionTexto
-              label="Reactivar"
-              tone="positive"
-              onClick={() => cambiarEstado(c.id, 'Activo')}
-            />
-          )}
-        </div>
-      ),
+      key: 'role',
+      header: 'Rol',
+      render: (u) => {
+        const rol = ROLES[u.role] ?? { etiqueta: u.role, tone: 'neutral' as BadgeTone };
+        return <Badge tone={rol.tone}>{rol.etiqueta}</Badge>;
+      },
     },
   ];
 
@@ -237,10 +149,11 @@ export const GeneralUsersPage = () => {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Usuarios"
-        description="Altas, bajas y permisos de aerolíneas, hoteles y clientes."
+        description="Cuentas de la plataforma y sus roles."
         actions={
           <button
             type="button"
+            onClick={abrirModal}
             className="bg-secondary hover:bg-secondary/90 flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
@@ -248,6 +161,12 @@ export const GeneralUsersPage = () => {
           </button>
         }
       />
+
+      {aviso && (
+        <p role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">
+          {aviso}
+        </p>
+      )}
 
       <div className="flex flex-col gap-4">
         <SearchFilterBar
@@ -266,29 +185,132 @@ export const GeneralUsersPage = () => {
             }}
             containerClassName="w-full md:w-48"
           >
-            <option value="todos">Todos los tipos</option>
-            <option value="aerolinea">Aerolíneas</option>
-            <option value="hotel">Hoteles</option>
-            <option value="cliente">Clientes</option>
+            <option value="todos">Todos los roles</option>
+            <option value="SUPER_ADMIN">Admin general</option>
+            <option value="AIRLINE_ADMIN">Aerolíneas</option>
+            <option value="HOTEL_ADMIN">Hoteles</option>
+            <option value="USER">Clientes</option>
           </Select>
         </SearchFilterBar>
 
-        <DataTable
-          columns={columns}
-          data={cuentasFiltradas}
-          keyExtractor={(c) => c.id}
-          emptyMessage="No se encontraron cuentas con ese criterio."
-        />
-
-        <Pagination
-          currentPage={page}
-          totalPages={1}
-          onPageChange={setPage}
-          totalItems={cuentasFiltradas.length}
-          itemsPerPage={5}
-          itemLabel="cuentas"
-        />
+        {error ? (
+          <div className="flex flex-col items-start gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-800">
+            <p role="alert">{error}</p>
+            <button
+              type="button"
+              onClick={() => void recargar()}
+              className="cursor-pointer font-semibold underline"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : cargando ? (
+          <p className="text-sm text-[#44474E]">Cargando usuarios…</p>
+        ) : (
+          <>
+            <DataTable
+              columns={columns}
+              data={visibles}
+              keyExtractor={(u) => u.id}
+              emptyMessage="No se encontraron cuentas con ese criterio."
+            />
+            <Pagination
+              currentPage={page}
+              totalPages={totalPaginas}
+              onPageChange={setPage}
+              totalItems={filtrados.length}
+              itemsPerPage={POR_PAGINA}
+              itemLabel="cuentas"
+            />
+          </>
+        )}
       </div>
+
+      <Modal
+        open={modalAbierto}
+        onClose={() => !guardando && setModalAbierto(false)}
+        title="Nueva cuenta"
+        description="Se crea con ese correo y contraseña y con el rol elegido."
+      >
+        <form onSubmit={guardar} className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AdminInput
+              contentLabel="Nombre"
+              required
+              minLength={2}
+              maxLength={50}
+              value={cuenta.firstName}
+              onChange={(e) => setCuenta({ ...cuenta, firstName: e.target.value })}
+            />
+            <AdminInput
+              contentLabel="Apellido"
+              required
+              minLength={2}
+              maxLength={50}
+              value={cuenta.lastName}
+              onChange={(e) => setCuenta({ ...cuenta, lastName: e.target.value })}
+            />
+          </div>
+          <AdminInput
+            contentLabel="Correo"
+            type="email"
+            required
+            autoComplete="off"
+            value={cuenta.email}
+            onChange={(e) => setCuenta({ ...cuenta, email: e.target.value })}
+          />
+          <AdminInput
+            contentLabel="Contraseña (mínimo 6 caracteres)"
+            type="password"
+            required
+            minLength={6}
+            maxLength={100}
+            autoComplete="new-password"
+            value={cuenta.password}
+            onChange={(e) => setCuenta({ ...cuenta, password: e.target.value })}
+          />
+          <div className="flex flex-col gap-2">
+            <label htmlFor="rol-cuenta" className="font-semibold text-[#1A2B4C]">
+              Rol
+            </label>
+            <Select
+              id="rol-cuenta"
+              value={cuenta.role}
+              onChange={(e) =>
+                setCuenta({ ...cuenta, role: e.target.value as NuevaCuenta['role'] })
+              }
+            >
+              <option value="AIRLINE_ADMIN">Aerolínea</option>
+              <option value="HOTEL_ADMIN">Hotel</option>
+              <option value="SUPER_ADMIN">Admin general</option>
+            </Select>
+          </div>
+
+          {errorCuenta && (
+            <p role="alert" className="text-alert text-sm">
+              {errorCuenta}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              disabled={guardando}
+              onClick={() => setModalAbierto(false)}
+              className="cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold text-[#44474E]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={guardando}
+              className="bg-secondary hover:bg-secondary/90 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {guardando ? 'Creando…' : 'Crear cuenta'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
